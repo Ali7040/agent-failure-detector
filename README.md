@@ -13,7 +13,7 @@ into a single **issue**, and outputs a JSON report plus a dashboard.
 **[Live dashboard](https://ali7040.github.io/agent-failure-detector/)** ·
 [Sample report.json](output/report.json)
 
-![Silent failure report dashboard](docs/dashboard.png)
+![One trace that reported success, the failure underneath it, and the detectors that catch it](docs/demo.gif)
 
 ---
 
@@ -72,6 +72,8 @@ are silent failures, and every one of them carries `reportedStatus: "success"`.
 ```
 
 Severity is derived from blast radius — the share of runs an issue touches.
+
+![Silent failure report dashboard](docs/dashboard.png)
 
 ## Run it
 

@@ -2,15 +2,17 @@
   "name": "agent-failure-detector",
   "version": "0.1.0",
   "private": true,
-  "description": "Detects silent failures in AI agent traces — runs that report success but never did the work.",
+  "description": "Detects silent failures in AI agent traces \u2014 runs that report success but never did the work.",
   "type": "module",
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start": "node init && tsx src/index.ts",
     "report": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
