@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silent failure report — support-agent</title>
+<style>
+  :root {
+    --bg:            #0c0d0e;
+    --surface:       #111213;
+    --surface-2:     #161718;
+    --line:          #202223;
+    --line-strong:   #2b2d2f;
+    --text:          #eceded;
+    --text-dim:      #9ea3a8;
+    --text-mute:     #6a6f75;
+    --critical:      #e5484d;
+    --high:          #e8a33d;
+    --medium:        #6e8bb5;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .topbar-inner {
+    max-width: 860px; margin: 0 auto; padding: 0 28px;
+    height: 46px; display: flex; align-items: center; gap: 14px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-mute);
+  }
+  .brand { color: var(--text-dim); letter-spacing: .01em; }
+  .brand b { color: var(--text); font-weight: 500; }
+  .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--critical); display: inline-block;
+    margin-right: 7px; vertical-align: 1px;
+  }
+  .dot.clear { background: #3fb27f; }
+  .topbar .sep { color: var(--line-strong); }
+  .topbar .right { margin-left: auto; }
+
+  /* ---------- header ---------- */
+  header { padding: 52px 0 0; }
+  .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-mute); margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0 0 12px; font-size: 23px; line-height: 1.25;
+    font-weight: 600; letter-spacing: -0.015em;
+  }
+  .lede { margin: 0; color: var(--text-dim); max-width: 60ch; font-size: 14.5px; }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  /* ---------- metrics strip ---------- */
+  .metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--line); border-radius: 4px;
+    margin: 34px 0 46px; background: var(--surface);
+  }
+  .metric { padding: 14px 18px; border-left: 1px solid var(--line); }
+  .metric:first-child { border-left: 0; }
+  .metric .k {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .085em;
+    text-transform: uppercase; color: var(--text-mute); white-space: nowrap;
+  }
+  .metric .v {
+    font-family: var(--mono); font-size: 21px; font-weight: 500;
+    margin-top: 7px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
+  }
+  .metric.flag .v { color: var(--critical); }
+  .metric.good .v { color: #3fb27f; }
+
+  /* ---------- issue list ---------- */
+  .list-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-mute);
+    padding-bottom: 10px; border-bottom: 1px solid var(--line-strong);
+  }
+  .issues { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 4px 4px; }
+  .issue {
+    position: relative; padding: 26px 26px 26px 28px;
+    border-top: 1px solid var(--line); background: var(--surface);
+  }
+  .issue:first-child { border-top: 0; }
+  .issue::before {
+    content: ""; position: absolute; left: 0; top: -1px; bottom: -1px; width: 2px;
+    background: var(--sev, var(--medium));
+  }
+  .issue[data-sev="critical"] { --sev: var(--critical); }
+  .issue[data-sev="high"]     { --sev: var(--high); }
+  .issue[data-sev="medium"]   { --sev: var(--medium); }
+
+  .meta {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; margin-bottom: 13px;
+  }
+  .sev {
+    letter-spacing: .09em; text-transform: uppercase; font-weight: 500;
+    color: var(--sev); border: 1px solid currentColor; border-radius: 3px;
+    padding: 2.5px 7px; opacity: .95;
+  }
+  .key { color: var(--text-mute); }
+  .meta .right { margin-left: auto; color: var(--text-mute); }
+  .meta .right b {
+    color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums;
+  }
+
+  h2 {
+    margin: 0 0 9px; font-size: 16.5px; font-weight: 600;
+    letter-spacing: -0.008em; line-height: 1.35;
+  }
+  .desc { margin: 0 0 22px; color: var(--text-dim); max-width: 68ch; font-size: 13.8px; }
+
+  /* ---------- impact ---------- */
+  .impact { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .impact .n {
+    font-family: var(--mono); font-size: 19px; font-weight: 500;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
+  }
+  .impact .n span { color: var(--text-mute); }
+  .track {
+    flex: 0 1 240px; height: 2px; background: var(--line-strong); position: relative;
+  }
+  .track i { position: absolute; inset: 0 auto 0 0; background: var(--sev); }
+  .impact .cap {
+    font-family: var(--mono); font-size: 11px; color: var(--text-mute); white-space: nowrap;
+  }
+
+  /* ---------- fields ---------- */
+  .field { margin-top: 18px; }
+  .field-k {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .085em;
+    text-transform: uppercase; color: var(--text-mute); margin-bottom: 9px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 3.5px 7px;
+  }
+  .fix {
+    margin: 0; color: var(--text-dim); font-size: 13.5px;
+    border-left: 1px solid var(--line-strong); padding-left: 14px; max-width: 68ch;
+  }
+  .fix code {
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 0.5px 4px;
+  }
+
+  .empty {
+    border: 1px solid var(--line); border-top: 0; border-radius: 0 0 4px 4px;
+    background: var(--surface); padding: 44px; text-align: center;
+    color: var(--text-mute); font-family: var(--mono); font-size: 12.5px;
+  }
+
+  footer {
+    margin: 40px 0 64px; padding-top: 16px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; color: var(--text-mute);
+  }
+
+  @media (max-width: 680px) {
+    .wrap, .topbar-inner { padding: 0 18px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .metric:nth-child(3) { border-left: 0; }
+    .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
+    h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <span class="dot"></span><b>failure-detector</b>
+    </span>
+    <span class="sep">/</span>
+    <span>support-agent</span>
+    <span class="sep">/</span>
+    <span>batch 20 runs</span>
+    <span class="right">2026-08-14 06:45 UTC</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <header>
+    <div class="kicker">Silent failure report</div>
+    <h1>7 of 20 runs reported success without doing the work</h1>
+    <p class="lede">
+      Every run flagged below terminated <b>cleanly</b>. No exception was thrown, no tool call
+      returned an error the agent surfaced, and none of them would appear in conventional error
+      monitoring. The failure is only visible by reading the trace against what the agent claimed.
+    </p>
+  </header>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="k">Runs analyzed</div>
+      <div class="v">20</div>
+    </div>
+    <div class="metric flag">
+      <div class="k">Silent failures</div>
+      <div class="v">7</div>
+    </div>
+    <div class="metric flag">
+      <div class="k">Failure rate</div>
+      <div class="v">35%</div>
+    </div>
+    <div class="metric good">
+      <div class="k">Clean runs</div>
+      <div class="v">13</div>
+    </div>
+  </div>
+
+  <div class="list-head">
+    <span>Detected issues</span>
+    <span>03</span>
+  </div>
+  <div class="issues">
+    <article class="issue" data-sev="critical">
+      <div class="meta">
+        <span class="sev">critical</span>
+        <span class="key">unverified-claims</span>
+        <span class="right"><b>20%</b> of runs affected</span>
+      </div>
+      <h2>Agent confirms a refund or cancellation it never verified</h2>
+      <p class="desc">The final message tells the customer their refund went through or their subscription was cancelled, but the trace contains no successful lookup_customer returning a real customer ID. The claim is stated with full confidence and lands in a support transcript as resolved — this is the class of failure that surfaces later as a chargeback or an angry second ticket.</p>
+
+      <div class="impact">
+        <span class="n">4<span> / 20</span></span>
+        <span class="track"><i style="width:20.0%"></i></span>
+        <span class="cap">runs affected</span>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Affected traces</div>
+        <div class="chips">
+          <span class="chip">T-1014</span>
+          <span class="chip">T-1015</span>
+          <span class="chip">T-1016</span>
+          <span class="chip">T-1019</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Recommended fix</div>
+        <p class="fix">Gate the closing message on evidence: before emitting a confirmation that matches <code>/refund|cancel/</code>, assert the run holds both a verified customerId and a successful mutating call whose result ID is echoed in the response. If either is missing, downgrade the wording to a request for confirmation.</p>
+      </div>
+    </article>
+    <article class="issue" data-sev="high">
+      <div class="meta">
+        <span class="sev">high</span>
+        <span class="key">fabricated-identifiers</span>
+        <span class="right"><b>15%</b> of runs affected</span>
+      </div>
+      <h2>Agent invents a customer ID after identity lookup fails</h2>
+      <p class="desc">The customer lookup failed or ran on a placeholder email, so the agent never established who it was talking to. Instead of stopping to ask, it substituted a fabricated ID (e.g. cus_UNKNOWN) into downstream calls — including refunds and cancellations — and closed the conversation as a success. Every tool call returned 200, so no error was ever raised.</p>
+
+      <div class="impact">
+        <span class="n">3<span> / 20</span></span>
+        <span class="track"><i style="width:15.0%"></i></span>
+        <span class="cap">runs affected</span>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Affected traces</div>
+        <div class="chips">
+          <span class="chip">T-1014</span>
+          <span class="chip">T-1015</span>
+          <span class="chip">T-1016</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Recommended fix</div>
+        <p class="fix">Make identity a hard precondition for any account-mutating tool. Reject customerId values matching <code>/^[a-z]+_(unknown|null|placeholder)$/</code> at the tool boundary, and have the agent ask a clarifying question when <code>lookup_customer</code> errors or returns <code>matched: false</code>.</p>
+      </div>
+    </article>
+    <article class="issue" data-sev="high">
+      <div class="meta">
+        <span class="sev">high</span>
+        <span class="key">stall-loops</span>
+        <span class="right"><b>15%</b> of runs affected</span>
+      </div>
+      <h2>Agent retries the same tool call and closes without answering</h2>
+      <p class="desc">The agent called one tool 3+ times with byte-identical arguments, received the same result every time, then ended the conversation with a holding phrase (&quot;I'm looking into it&quot;, &quot;one moment&quot;) instead of an answer. The run is recorded as a success, but the user's question was never resolved and no follow-up is coming.</p>
+
+      <div class="impact">
+        <span class="n">3<span> / 20</span></span>
+        <span class="track"><i style="width:15.0%"></i></span>
+        <span class="cap">runs affected</span>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Affected traces</div>
+        <div class="chips">
+          <span class="chip">T-1017</span>
+          <span class="chip">T-1018</span>
+          <span class="chip">T-1020</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-k">Recommended fix</div>
+        <p class="fix">Deduplicate identical tool calls within a run: after the second identical call, return a cached result plus a retry-exhausted signal. Then require the closing turn to either answer the question or hand off to a human — treat a holding phrase as a terminal state, not a success.</p>
+      </div>
+    </article>
+  </div>
+
+  <footer>
+    <span>Rule-based detection · 3 detectors · 20 traces</span>
+    <span>Scan completed 2026-08-14 06:45 UTC</span>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "totalTraces": 20,
+  "issues": [
+    {
+      "id": "unverified-claims",
+      "title": "Agent confirms a refund or cancellation it never verified",
+      "description": "The final message tells the customer their refund went through or their subscription was cancelled, but the trace contains no successful lookup_customer returning a real customer ID. The claim is stated with full confidence and lands in a support transcript as resolved — this is the class of failure that surfaces later as a chargeback or an angry second ticket.",
+      "affectedTraceIds": [
+        "T-1014",
+        "T-1015",
+        "T-1016",
+        "T-1019"
+      ],
+      "totalTraces": 20,
+      "suggestedFix": "Gate the closing message on evidence: before emitting a confirmation that matches /refund|cancel/, assert the run holds both a verified customerId and a successful mutating call whose result ID is echoed in the response. If either is missing, downgrade the wording to a request for confirmation."
+    },
+    {
+      "id": "fabricated-identifiers",
+      "title": "Agent invents a customer ID after identity lookup fails",
+      "description": "The customer lookup failed or ran on a placeholder email, so the agent never established who it was talking to. Instead of stopping to ask, it substituted a fabricated ID (e.g. cus_UNKNOWN) into downstream calls — including refunds and cancellations — and closed the conversation as a success. Every tool call returned 200, so no error was ever raised.",
+      "affectedTraceIds": [
+        "T-1014",
+        "T-1015",
+        "T-1016"
+      ],
+      "totalTraces": 20,
+      "suggestedFix": "Make identity a hard precondition for any account-mutating tool. Reject customerId values matching /^[a-z]+_(unknown|null|placeholder)$/ at the tool boundary, and have the agent ask a clarifying question when lookup_customer errors or returns matched: false."
+    },
+    {
+      "id": "stall-loops",
+      "title": "Agent retries the same tool call and closes without answering",
+      "description": "The agent called one tool 3+ times with byte-identical arguments, received the same result every time, then ended the conversation with a holding phrase (\"I'm looking into it\", \"one moment\") instead of an answer. The run is recorded as a success, but the user's question was never resolved and no follow-up is coming.",
+      "affectedTraceIds": [
+        "T-1017",
+        "T-1018",
+        "T-1020"
+      ],
+      "totalTraces": 20,
+      "suggestedFix": "Deduplicate identical tool calls within a run: after the second identical call, return a cached result plus a retry-exhausted signal. Then require the closing turn to either answer the question or hand off to a human — treat a holding phrase as a terminal state, not a success."
+    }
+  ]
+}
