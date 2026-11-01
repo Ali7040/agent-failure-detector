@@ -5,7 +5,7 @@
   "description": "Detects silent failures in AI agent traces \u2014 runs that report success but never did the work.",
   "type": "module",
   "scripts": {
-    "start": "node init && tsx src/index.ts",
+    "start": "tsx src/index.ts",
     "report": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
